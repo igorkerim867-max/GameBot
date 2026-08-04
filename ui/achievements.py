@@ -5,6 +5,7 @@ from database.mafia.achievements import (
     get_progress
 )
 from database.mafia.service import MafiaStatsService
+from ui.achievements import get_category_embed
 
 def progress_bar(current: int, maximum: int) -> str:
     """
@@ -106,8 +107,63 @@ async def get_achievements_embed(user: discord.User):
     total = len(ACHIEVEMENTS)
     unlocked = 0
     points = 0
-
     for achievement in ACHIEVEMENTS.values():
+
+        progress = get_progress(
+            achievement,
+            stats
+        )
+
+        if progress["completed"]:
+            unlocked += 1
+            points += achievement.points
+
+    embed.description = (
+        f"⭐ **Очков:** {points}\n"
+        f"🏅 **Получено:** {unlocked}/{total}\n\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        "Выберите категорию достижений ниже."
+    )
+
+    return embed
+import discord
+async def get_category_embed(
+    user: discord.User,
+    title: str,
+    category: dict
+):
+
+    stats_service = MafiaStatsService()
+
+    player = await stats_service.get_player(user.id)
+
+    if player is None:
+        stats = {
+            "games": 0,
+            "wins": 0,
+            "losses": 0
+        }
+    else:
+        stats = {
+            "games": player[2],
+            "wins": player[3],
+            "losses": player[4]
+        }
+
+    embed = await get_category_embed(
+        interaction.user,
+        title,
+        category
+    )
+
+    await interaction.response.edit_message(
+        embed=embed,
+        view=AchievementView()
+    )
+
+    unlocked = 0
+    points = 0
+    for achievement in category.values():
 
         progress = get_progress(
             achievement,
@@ -131,14 +187,12 @@ async def get_achievements_embed(user: discord.User):
             ),
             inline=False
         )
-
     embed.description = (
-        f"⭐ Очков: **{points}**\n"
-        f"🏅 Получено: **{unlocked}/{total}**"
+        f"⭐ **Очков:** {points}\n"
+        f"🏅 **Получено:** {unlocked}/{len(category)}"
     )
 
     return embed
-import discord
 
 from database.mafia.achievements import (
     ACHIEVEMENTS,
@@ -151,6 +205,7 @@ from database.mafia.achievements import (
     SECRET,
     LEGENDARY,
 )
+
 
 
 class AchievementView(discord.ui.View):
@@ -173,7 +228,8 @@ async def general(
     button: discord.ui.Button
 ):
     await interaction.response.edit_message(
-        embed=get_category_embed(
+        embed=await get_category_embed(
+            interaction.user,
             "🎮 Общие достижения",
             GENERAL
         ),
