@@ -6,6 +6,7 @@ from ui.achievements import (
     get_achievements_embed,
     AchievementView
 )
+from ui.achievement_games import AchievementGameView
 
 class ProfileView(discord.ui.View):
 
@@ -39,6 +40,28 @@ class ProfileView(discord.ui.View):
         await interaction.response.send_message(
             embed=embed,
             view=AchievementView(),
+            ephemeral=True
+        )
+    @discord.ui.button(
+        label="🏆 Достижения",
+        style=discord.ButtonStyle.success,
+        row=0
+    )
+    async def achievements_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+
+        embed = discord.Embed(
+            title="🏆 Достижения",
+            description="Выберите игру.",
+            color=discord.Color.gold()
+        )
+
+        await interaction.response.send_message(
+            embed=embed,
+            view=AchievementGameView(),
             ephemeral=True
         )
     @discord.ui.button(
