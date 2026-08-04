@@ -33,7 +33,6 @@ class PlayerSelect(discord.ui.Select):
                     value=str(player.user_id)
                 )
             )
-            # Возможность пропустить голосование
             if callback_name == "vote_action":
                 options.append(
                     discord.SelectOption(
