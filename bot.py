@@ -42,6 +42,11 @@ class GameBot(commands.Bot):
 
         print(f"\n=== ERROR: {event} ===")
         traceback.print_exc()
+    async def on_app_command_error(self, interaction, error):
+        import traceback
+
+        print("\n========== APP COMMAND ERROR ==========")
+        traceback.print_exception(type(error), error, error.__traceback__)
 
 from games.room_manager import room_manager
 
