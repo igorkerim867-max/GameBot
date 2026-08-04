@@ -5,7 +5,6 @@ from database.mafia.achievements import (
     get_progress
 )
 from database.mafia.service import MafiaStatsService
-from ui.achievements import get_category_embed
 
 def progress_bar(current: int, maximum: int) -> str:
     """
