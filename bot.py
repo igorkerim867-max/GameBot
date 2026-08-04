@@ -42,7 +42,12 @@ class GameBot(commands.Bot):
         print(f"\n=== ERROR: {event} ===")
         traceback.print_exc()
 
+from games.room_manager import room_manager
+
 async def main():
+    room_manager.clear()
+    print("✅ Все комнаты очищены")
+
     bot = GameBot()
 
     async with bot:
