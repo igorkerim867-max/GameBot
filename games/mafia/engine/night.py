@@ -170,6 +170,10 @@ async def process_maniac(
 async def process(game):
 
     dead_players = []
+    # Сбрасываем эффект проститутки с прошлой ночи
+    for player in game.players:
+        player.blocked_by_hooker = False
+        player.can_vote = True
 
     hookers = game.player_service.find_alive_roles(
         RoleType.HOOKER
