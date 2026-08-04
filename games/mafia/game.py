@@ -121,9 +121,8 @@ ROLE_SETUP = {
 class MafiaGame:
 
     def __init__(self, bot: discord.Client, room):
-        self.stats_service = MafiaStatsService()
-        self.achievement_checker = AchievementChecker(self.stats_service)
-
+        self.stats = MafiaStatsService()
+        self.achievement_checker = AchievementChecker(self.stats)
         self.bot = bot
         self.room = room
 
