@@ -469,25 +469,31 @@ class MafiaGame:
 
             print("Sending vote to", player.user_id)
 
+            try:
 
+                user = await self.bot.fetch_user(player.user_id)
 
-            user = await self.bot.fetch_user(player.user_id)
+                if not player.can_vote:
+                    await user.send(
+                        "💋 Прошлой ночью вас посетила Проститутка.\n\n"
+                        "Сегодня вы не сможете участвовать в голосовании."
+                    )
+                    continue
 
-            if not player.can_vote:
                 await user.send(
-                    "💋 Прошлой ночью вас посетила Проститутка.\n\n"
-                    "Сегодня вы не сможете участвовать в голосовании."
+                    "🗳 Выберите игрока для изгнания.",
+                    view=PlayerSelectView(
+                        self,
+                        player,
+                        "vote_action"
+                    )
                 )
-                continue
 
-            await user.send(
-                "🗳 Выберите игрока для изгнания.",
-                view=PlayerSelectView(
-                    self,
-                    player,
-                    "vote_action"
-                )
-            )
+                print("Vote sent!")
+
+            except Exception as e:
+
+                print("ERROR SENDING VOTE:", e)
     
         print("===== CREATING VOTE TASK =====")
         self.vote_task = asyncio.create_task(
