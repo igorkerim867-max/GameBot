@@ -15,10 +15,13 @@ class PlayerSelect(discord.ui.Select):
 
             if player.user_id == actor.user_id:
                 continue
+
             # Мафия не может выбирать мафию
-            if callback_name == "mafia_action":
-                if player.role.team == actor.role.team:
-                    continue
+            if (
+                callback_name == "mafia_action"
+                and player.role.team == actor.role.team
+            ):
+                continue
 
             user = game.bot.get_user(player.user_id)
 
@@ -33,13 +36,15 @@ class PlayerSelect(discord.ui.Select):
                     value=str(player.user_id)
                 )
             )
-            if callback_name == "vote_action":
-                options.append(
-                    discord.SelectOption(
-                        label="⏭️ Пропустить голосование",
-                        value="skip"
-                    )
+
+        # Возможность пропустить голосование
+        if callback_name == "vote_action":
+            options.append(
+                discord.SelectOption(
+                    label="⏭️ Пропустить голосование",
+                    value="skip"
                 )
+            )
 
         super().__init__(
             placeholder="Выберите игрока...",
@@ -47,7 +52,6 @@ class PlayerSelect(discord.ui.Select):
             max_values=1,
             options=options
         )
-
     async def callback(self, interaction: discord.Interaction):
         self.disabled = True
 
