@@ -24,15 +24,22 @@ class GameBot(commands.Bot):
         )
 
     async def setup_hook(self):
+        print("SETUP HOOK START")
         # Загружаем все файлы из папки cogs
         for filename in os.listdir("./cogs"):
             if filename.endswith(".py") and filename != "__init__.py":
                 await self.load_extension(f"cogs.{filename[:-3]}")
                 print(f"✅ Загружен модуль: {filename}")
         synced = await self.tree.sync()
+        print("====== COMMANDS ======")
+
+        for cmd in self.tree.walk_commands():
+            print(cmd.name)
+        print("SETUP HOOK END")
         print(f"✅ Slash-команд синхронизировано: {len(synced)}")
 
     async def on_ready(self):
+        print("BOT READY")
         print("=" * 40)
         print(f"🎮 {self.user} готов к работе!")
         print(f"📡 Серверов: {len(self.guilds)}")

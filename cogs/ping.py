@@ -12,6 +12,7 @@ class Ping(commands.Cog):
         description="Проверить работу GameBot"
     )
     async def ping(self, interaction: discord.Interaction):
+        print("PING COMMAND START")
         await interaction.response.send_message(
             f"🏓 Pong!\nЗадержка: {round(self.bot.latency * 1000)} мс"
         )
