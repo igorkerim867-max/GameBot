@@ -22,16 +22,14 @@ from games.mafia.actions.maniac import handle_maniac_action
 from games.mafia.engine.finish_night import finish_night as engine_finish_night
 from games.mafia.settings import get_time_settings
 from database.mafia.service import MafiaStatsService
-try:
-    from database.mafia.checker import AchievementChecker
-except Exception:
-    # Fallback stub if the checker module is unavailable in the environment
-    class AchievementChecker:
-        def __init__(self, *args, **kwargs):
-            pass
 
-        async def check_all(self, user_id):
-            return []
+# Fallback stub if the checker module is unavailable in the environment
+class AchievementChecker:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def check_all(self, user_id):
+        return []
 ROLE_SETUP = {
     4: {
         RoleType.MAFIA: 1,
@@ -426,26 +424,17 @@ class MafiaGame:
             room_manager.games.pop(self.room.room_id, None)
 
     async def start_day(self):
+
         if self.finished:
             return
 
-        print("===== START DAY =====")
-
-        settings = get_time_settings(len(self.players))
-
-        ...
-        await asyncio.sleep(settings.discussion)
-
-        print("===== START VOTING =====")
-
-        await self.start_voting()
         settings = get_time_settings(len(self.players))
 
         embed = discord.Embed(
             title="☀️ День",
             description=(
                 "Обсудите произошедшее.\n\n"
-                "⏳ Голосование начнётся через 60 секунд."
+                f"⏳ Голосование начнётся через {settings.discussion} секунд."
             ),
             color=discord.Color.gold()
         )
@@ -453,6 +442,9 @@ class MafiaGame:
         await self.game_channel.send(embed=embed)
 
         await asyncio.sleep(settings.discussion)
+
+        if self.finished:
+            return
 
         await self.start_voting()
     async def start_voting(self):
