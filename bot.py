@@ -8,6 +8,7 @@ from ui.mafia_menu import MafiaMenu
 from ui.mafia_lobby import MafiaLobbyView
 
 from config import TOKEN
+from database.mafia.models import create_tables
 
 
 intents = discord.Intents.default()
@@ -45,8 +46,12 @@ class GameBot(commands.Bot):
 from games.room_manager import room_manager
 
 async def main():
+
     room_manager.clear()
     print("✅ Все комнаты очищены")
+
+    await create_tables()
+    print("✅ База данных Mafia готова")
 
     bot = GameBot()
 

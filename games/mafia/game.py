@@ -21,6 +21,17 @@ from games.mafia.actions.hooker import handle_hooker_action
 from games.mafia.actions.maniac import handle_maniac_action
 from games.mafia.engine.finish_night import finish_night as engine_finish_night
 from games.mafia.settings import get_time_settings
+from GameBot.database.mafia.service import MafiaStatsService
+try:
+    from GameBot.database.mafia.checker import AchievementChecker
+except Exception:
+    # Fallback stub if the checker module is unavailable in the environment
+    class AchievementChecker:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def check_all(self, user_id):
+            return []
 ROLE_SETUP = {
     4: {
         RoleType.MAFIA: 1,
@@ -110,7 +121,8 @@ ROLE_SETUP = {
 class MafiaGame:
 
     def __init__(self, bot: discord.Client, room):
-        
+        self.stats_service = MafiaStatsService()
+        self.achievement_checker = AchievementChecker(self.stats_service)
 
         self.bot = bot
         self.room = room
@@ -141,6 +153,25 @@ class MafiaGame:
         print("========== GAME START ==========")
 
         self.started = True
+        for player in self.players:
+
+            user = await self.bot.fetch_user(player.user_id)
+
+            if not await self.stats.player_exists(player.user_id):
+
+                await self.stats.create_player(
+                    player.user_id,
+                    user.name
+                )
+
+            else:
+
+                await self.stats.update_username(
+                    player.user_id,
+                    user.name
+                )
+
+            await self.stats.add_game(player.user_id)
 
         self.give_roles()
 
@@ -323,6 +354,61 @@ class MafiaGame:
         )
 
         await self.game_channel.send(embed=embed)
+        # Определяем победителей
+        mafia_won = "маф" in text.lower()
+
+        for player in self.players:
+
+            if mafia_won:
+
+                if player.role.role_type == RoleType.MAFIA:
+                    await self.stats.add_win(player.user_id)
+                else:
+                    await self.stats.add_loss(player.user_id)
+
+            else:
+
+                if player.role.role_type == RoleType.MAFIA:
+                    await self.stats.add_loss(player.user_id)
+                else:
+                    await self.stats.add_win(player.user_id)
+        for player in self.players:
+
+            unlocked = await self.achievement_checker.check_all(
+                player.user_id
+            )
+
+            if not unlocked:
+                continue
+
+            user = await self.bot.fetch_user(player.user_id)
+
+            for achievement_id in unlocked:
+
+                # Try to fetch achievement definition from global ACHIEVEMENTS
+                achievement = None
+                _achievements_map = globals().get("ACHIEVEMENTS")
+                if _achievements_map and achievement_id in _achievements_map:
+                    achievement = _achievements_map[achievement_id]
+                else:
+                    # Fallback placeholder if ACHIEVEMENTS is not available
+                    achievement = type("Achievement", (), {
+                        "name": str(achievement_id),
+                        "description": "",
+                        "points": 0,
+                    })()
+
+                await user.send(
+                    embed=discord.Embed(
+                        title="🏆 Новое достижение!",
+                        description=(
+                            f"**{achievement.name}**\n\n"
+                            f"{achievement.description}\n\n"
+                            f"⭐ Очков: **{achievement.points}**"
+                        ),
+                        color=discord.Color.gold()
+                    )
+                )
 
         # Сообщаем всем игрокам роли
         roles = "\n".join(
