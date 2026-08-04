@@ -16,6 +16,8 @@ class Panel(commands.Cog):
     )
     async def panel(self, interaction: discord.Interaction):
 
+        print("1. /panel вызвана")
+
         embed = GameEmbed(
             title="🎮 GameBot",
             description=(
@@ -24,10 +26,18 @@ class Panel(commands.Cog):
             )
         )
 
-        await interaction.response.send_message(
-            embed=embed
-        ) 
+        print("2. Embed создан")
 
+        view = MainMenu()
+
+        print("3. MainMenu создан")
+
+        await interaction.response.send_message(
+            embed=embed,
+            view=view
+        )
+
+        print("4. Сообщение отправлено")
 
 async def setup(bot):
     await bot.add_cog(Panel(bot))
