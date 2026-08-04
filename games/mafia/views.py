@@ -33,6 +33,14 @@ class PlayerSelect(discord.ui.Select):
                     value=str(player.user_id)
                 )
             )
+            # Возможность пропустить голосование
+            if callback_name == "vote_action":
+                options.append(
+                    discord.SelectOption(
+                        label="⏭️ Пропустить голосование",
+                        value="skip"
+                    )
+                )
 
         super().__init__(
             placeholder="Выберите игрока...",
@@ -49,7 +57,21 @@ class PlayerSelect(discord.ui.Select):
 
         await interaction.message.edit(view=self.view)
 
-        target_id = int(self.values[0])
+        selected = self.values[0]
+
+        if selected == "skip":
+
+            await getattr(
+                self.game,
+                self.callback_name
+            )(
+               interaction,
+               self.actor,
+               None
+            )
+            return
+
+        target_id = int(selected)
 
         await getattr(
             self.game,

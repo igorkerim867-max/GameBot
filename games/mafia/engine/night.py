@@ -77,41 +77,6 @@ async def process_mafia(
             dead_players
         )
 
-        # Проститутка погибла
-        for hooker in hookers:
-
-            target = hooker_targets.get(hooker.user_id)
-
-            if (
-                dead_player.user_id == hooker.user_id
-                and target
-                and target.alive
-                and target.role.team != Team.MAFIA
-            ):
-                await kill_player(
-                    game,
-                    target,
-                    dead_players,
-                    "этой ночью у вас находилась Проститутка."
-                )
-
-        # Проститутка пришла к убитому
-            for hooker in hookers:
-
-                target = hooker_targets.get(hooker.user_id)
-
-                if (
-                    hooker.alive
-                    and target
-                    and dead_player.user_id == target.user_id
-                ):
-                    await kill_player(
-                        game,
-                        hooker,
-                        dead_players,
-                        "вы находились у убитого игрока."
-                    )
-
     # Всем мафиям отправляем результат
     for mafia in game.player_service.mafia_players():
 

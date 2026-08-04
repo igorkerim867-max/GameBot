@@ -1,4 +1,5 @@
 
+from GameBot.games.mafia import player
 from games.mafia.views import PlayerSelectView
 import random
 import asyncio
@@ -19,6 +20,7 @@ from games.mafia.actions.mafia import handle_mafia_action
 from games.mafia.actions.hooker import handle_hooker_action
 from games.mafia.actions.maniac import handle_maniac_action
 from games.mafia.engine.finish_night import finish_night as engine_finish_night
+from games.mafia.settings import get_time_settings
 ROLE_SETUP = {
     4: {
         RoleType.MAFIA: 1,
@@ -132,6 +134,7 @@ class MafiaGame:
         # Голосование
         self.votes = {}
         self.voted_players = set()
+        self.voted_players = set()
 
     async def start(self):
 
@@ -166,15 +169,79 @@ class MafiaGame:
     async def send_roles(self):
 
         print("Отправка ролей...")
+        mafia_players = [
+            p for p in self.players
+            if p.role.role_type == RoleType.MAFIA
+        ]
+        ROLE_DESCRIPTIONS = {
+    RoleType.CIVILIAN:
+        "👤 **Мирный житель**\n\n"
+        "Ваша задача — вычислить мафию и помочь мирным победить.\n"
+        "Ночью вы спите.",
+
+    RoleType.MAFIA:
+        "🔪 **Мафия**\n\n"
+        "Ваша задача — устранить всех мирных жителей.\n"
+        "Каждую ночь вы выбираете жертву.",
+
+    RoleType.DOCTOR:
+        "💉 **Доктор**\n\n"
+        "Каждую ночь вы можете спасти одного игрока от смерти.",
+
+    RoleType.SHERIFF:
+        "👮 **Шериф**\n\n"
+        "Каждую ночь вы проверяете одного игрока.\n"
+        "Бот сообщит, является ли он мафией.",
+
+    RoleType.HOOKER:
+        "💋 **Проститутка**\n\n"
+        "Каждую ночь вы выбираете одного игрока.\n"
+        "На следующий день он не сможет голосовать."
+}
+
 
         for player in self.players:
 
             try:
                 user = await self.bot.fetch_user(player.user_id)
-
-                await user.send(
+                description = ROLE_DESCRIPTIONS.get(
+                    player.role.role_type,
                     f"🎭 Ваша роль: **{player.role.name}**"
                 )
+
+                if player.role.role_type == RoleType.MAFIA:
+
+                    teammates = [
+                        f"<@{p.user_id}>"
+                        for p in mafia_players
+                        if p.user_id != player.user_id
+                    ]
+
+                description += "\n\n━━━━━━━━━━━━━━"
+
+                if teammates:
+                    description += "\n🔪 **Ваши союзники:**\n"
+                    description += "\n".join(f"• {mate}" for mate in teammates)
+                else:
+                    description += "\n🔪 Вы единственный представитель мафии."
+                # Для мафии добавляем союзников
+                if player.role.role_type == RoleType.MAFIA:
+
+                    teammates = [
+                        f"<@{p.user_id}>"
+                        for p in mafia_players
+                        if p.user_id != player.user_id
+                    ]
+
+                    if teammates:
+                        description += "\n\n━━━━━━━━━━━━━━\n"
+                        description += "\n🔪 **Ваши союзники:**\n"
+                        description += "\n".join(f"• {mate}" for mate in teammates)
+                    else:
+                        description += "\n\n━━━━━━━━━━━━━━\n"
+                        description += "\n🔪 Вы единственный представитель мафии."
+
+                await user.send(description)
 
                 print(f"✔ Роль отправлена {user}")
 
@@ -282,6 +349,7 @@ class MafiaGame:
             room_manager.games.pop(self.room.room_id, None)
 
     async def start_day(self):
+        settings = get_time_settings(len(self.players))
 
         embed = discord.Embed(
             title="☀️ День",
@@ -294,17 +362,22 @@ class MafiaGame:
 
         await self.game_channel.send(embed=embed)
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(settings.discussion)
 
         await self.start_voting()
     async def start_voting(self):
 
         self.votes.clear()
         self.voted_players.clear()
+        self.voting_finished = False
+        settings = get_time_settings(len(self.players))
 
         embed = discord.Embed(
             title="🗳 Голосование",
-            description="Все живые игроки выбирают, кого хотят изгнать.",
+            description=(
+                "Все живые игроки выбирают, кого хотят изгнать.\n\n"
+                f"⏳ На голосование даётся **{settings.vote} секунд**."
+            ),
             color=discord.Color.orange()
         )
 
@@ -313,6 +386,13 @@ class MafiaGame:
         for player in self.player_service.alive_players():
 
             user = await self.bot.fetch_user(player.user_id)
+
+            if not player.can_vote:
+                await user.send(
+                    "💋 Прошлой ночью вас посетила Проститутка.\n\n"
+                    "Сегодня вы не сможете участвовать в голосовании."
+                )
+                continue
 
             await user.send(
                 "🗳 Выберите игрока для изгнания.",
@@ -323,12 +403,66 @@ class MafiaGame:
                 )
             )
 
+        self.vote_task = asyncio.create_task(
+            self.vote_timeout()
+        )
+    async def vote_timeout(self):
+
+        settings = get_time_settings(len(self.players))
+
+        # Ждём до предупреждения
+        if settings.vote > settings.warning:
+            await asyncio.sleep(settings.vote - settings.warning)
+
+            if self.voting_finished:
+                return
+
+            await self.game_channel.send(
+                f"⚠️ До окончания голосования осталось **{settings.warning} секунд!**"
+            )
+
+            await asyncio.sleep(settings.warning)
+
+        else:
+            await asyncio.sleep(settings.vote)
+
+        if self.voting_finished:
+            return
+
+        await self.game_channel.send(
+            "⏳ Время голосования истекло.\nПодводим итоги..."
+        )
+
+        await self.finish_voting()
     async def vote_action(
         self,
         interaction,
         actor,
         target_id
     ):
+        if target_id is None:
+
+            self.voted_players.add(actor.user_id)
+
+            await interaction.response.send_message(
+                "⏭️ Вы решили воздержаться от голосования.",
+                ephemeral=True
+            )
+
+            can_vote_players = [
+                p for p in self.player_service.alive_players()
+                if p.can_vote
+            ]
+
+            if len(self.voted_players) == len(can_vote_players):
+
+                if self.vote_task:
+                   self.vote_task.cancel()
+
+                await self.finish_voting()
+
+            return
+        
         target = self.player_service.get_player(target_id)
 
         if target is None or not target.alive:
@@ -361,13 +495,21 @@ class MafiaGame:
         )
 
         can_vote_players = [
-    p for p in self.player_service.alive_players()
-    if p.can_vote
-]
+            p for p in self.player_service.alive_players()
+            if p.can_vote
+        ]
 
         if len(self.voted_players) == len(can_vote_players):
+
+            if self.vote_task:
+                self.vote_task.cancel()
+
             await self.finish_voting()
     async def finish_voting(self):
+        if self.voting_finished:
+            return
+
+        self.voting_finished = True
 
         # Если никто не проголосовал
         if not self.votes:
