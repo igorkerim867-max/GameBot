@@ -238,22 +238,6 @@ class MafiaGame:
                     player.role.role_type,
                     f"🎭 Ваша роль: **{player.role.name}**"
                 )
-
-                if player.role.role_type == RoleType.MAFIA:
-
-                    teammates = [
-                        f"<@{p.user_id}>"
-                        for p in mafia_players
-                        if p.user_id != player.user_id
-                    ]
-
-                description += "\n\n━━━━━━━━━━━━━━"
-
-                if teammates:
-                    description += "\n🔪 **Ваши союзники:**\n"
-                    description += "\n".join(f"• {mate}" for mate in teammates)
-                else:
-                    description += "\n🔪 Вы единственный представитель мафии."
                 # Для мафии добавляем союзников
                 if player.role.role_type == RoleType.MAFIA:
 
@@ -263,13 +247,13 @@ class MafiaGame:
                         if p.user_id != player.user_id
                     ]
 
-                    if teammates:
-                        description += "\n\n━━━━━━━━━━━━━━\n"
-                        description += "\n🔪 **Ваши союзники:**\n"
-                        description += "\n".join(f"• {mate}" for mate in teammates)
-                    else:
-                        description += "\n\n━━━━━━━━━━━━━━\n"
-                        description += "\n🔪 Вы единственный представитель мафии."
+                if teammates:
+                    description += "\n\n━━━━━━━━━━━━━━\n"
+                    description += "\n🔪 **Ваши союзники:**\n"
+                    description += "\n".join(f"• {mate}" for mate in teammates)
+                else:
+                    description += "\n\n━━━━━━━━━━━━━━\n"
+                    description += "\n🔪 Вы единственный представитель мафии."
 
                 await user.send(description)
 
@@ -434,6 +418,17 @@ class MafiaGame:
             room_manager.games.pop(self.room.room_id, None)
 
     async def start_day(self):
+
+        print("===== START DAY =====")
+
+        settings = get_time_settings(len(self.players))
+
+        ...
+        await asyncio.sleep(settings.discussion)
+
+        print("===== START VOTING =====")
+
+        await self.start_voting()
         settings = get_time_settings(len(self.players))
 
         embed = discord.Embed(
@@ -451,6 +446,8 @@ class MafiaGame:
 
         await self.start_voting()
     async def start_voting(self):
+        print("===== VOTING FUNCTION =====")
+
 
         self.votes.clear()
         self.voted_players.clear()
@@ -467,8 +464,12 @@ class MafiaGame:
         )
 
         await self.game_channel.send(embed=embed)
-
+        print("Alive players:", len(self.player_service.alive_players()))
         for player in self.player_service.alive_players():
+
+            print("Sending vote to", player.user_id)
+
+
 
             user = await self.bot.fetch_user(player.user_id)
 
@@ -487,7 +488,8 @@ class MafiaGame:
                     "vote_action"
                 )
             )
-
+    
+        print("===== CREATING VOTE TASK =====")
         self.vote_task = asyncio.create_task(
             self.vote_timeout()
         )
