@@ -1,5 +1,5 @@
 
-from GameBot.games.mafia import player
+from games.mafia import player
 from games.mafia.views import PlayerSelectView
 import random
 import asyncio
@@ -21,9 +21,9 @@ from games.mafia.actions.hooker import handle_hooker_action
 from games.mafia.actions.maniac import handle_maniac_action
 from games.mafia.engine.finish_night import finish_night as engine_finish_night
 from games.mafia.settings import get_time_settings
-from GameBot.database.mafia.service import MafiaStatsService
+from database.mafia.service import MafiaStatsService
 try:
-    from GameBot.database.mafia.checker import AchievementChecker
+    from database.mafia.checker import AchievementChecker
 except Exception:
     # Fallback stub if the checker module is unavailable in the environment
     class AchievementChecker:
