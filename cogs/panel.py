@@ -25,9 +25,8 @@ class Panel(commands.Cog):
         )
 
         await interaction.response.send_message(
-            embed=embed,
-            view=MainMenu()
-        )
+            embed=embed
+        ) 
 
 
 async def setup(bot):
