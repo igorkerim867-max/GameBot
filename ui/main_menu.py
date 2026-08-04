@@ -1,5 +1,6 @@
 import discord
 
+from ui.profile import get_profile_embed, ProfileView
 from core.embeds import GameEmbed
 
 
@@ -30,9 +31,19 @@ class MainMenu(discord.ui.View):
         style=discord.ButtonStyle.secondary,
         row=0
     )
-    async def profile(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def profile(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+
+        embed = await get_profile_embed(
+            interaction.user
+        )
+
         await interaction.response.send_message(
-            f"👤 Профиль игрока {interaction.user.mention} пока не реализован.",
+            embed=embed,
+            view=ProfileView(),
             ephemeral=True
         )
 
