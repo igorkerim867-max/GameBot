@@ -146,6 +146,7 @@ class MafiaGame:
         self.votes = {}
         self.voted_players = set()
         self.voted_players = set()
+        self.finished = False
 
     async def start(self):
 
@@ -247,14 +248,18 @@ class MafiaGame:
                         if p.user_id != player.user_id
                     ]
 
-                if teammates:
                     description += "\n\n━━━━━━━━━━━━━━\n"
-                    description += "\n🔪 **Ваши союзники:**\n"
-                    description += "\n".join(f"• {mate}" for mate in teammates)
-                else:
-                    description += "\n\n━━━━━━━━━━━━━━\n"
-                    description += "\n🔪 Вы единственный представитель мафии."
 
+                    if teammates:
+                        description += "🔪 **Ваши союзники:**\n"
+                        description += "\n".join(f"• {mate}" for mate in teammates)
+                    else:
+                        description += "🔪 Вы единственный представитель мафии."
+
+               
+                print(f"Отправляем {player.role.name}:")
+                print(description)
+                print("----------------")
                 await user.send(description)
 
                 print(f"✔ Роль отправлена {user}")
@@ -263,6 +268,8 @@ class MafiaGame:
                 print(f"Не удалось отправить роль {player.user_id}: {e}")
 
     async def start_night(self):
+        if self.finished:
+            return
         return await start_night(self)
     async def mafia_action(
         self,
@@ -329,6 +336,7 @@ class MafiaGame:
     async def check_win(self):
         return await check_win(self)
     async def game_over(self, text: str):
+        self.finished = True
 
         embed = discord.Embed(
             title="🏁 Игра окончена",
@@ -418,6 +426,8 @@ class MafiaGame:
             room_manager.games.pop(self.room.room_id, None)
 
     async def start_day(self):
+        if self.finished:
+            return
 
         print("===== START DAY =====")
 
@@ -446,6 +456,8 @@ class MafiaGame:
 
         await self.start_voting()
     async def start_voting(self):
+        if self.finished:
+            return
         print("===== VOTING FUNCTION =====")
 
 
@@ -500,6 +512,8 @@ class MafiaGame:
             self.vote_timeout()
         )
     async def vote_timeout(self):
+        if self.finished:
+            return
 
         settings = get_time_settings(len(self.players))
 
