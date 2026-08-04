@@ -6,6 +6,78 @@ from database.mafia.achievements import (
 )
 from database.mafia.service import MafiaStatsService
 
+def progress_bar(current: int, maximum: int) -> str:
+    """
+    Возвращает красивую полосу прогресса длиной 10 блоков.
+    """
+
+    if maximum <= 0:
+        return "░" * 10
+
+    blocks = 10
+
+    filled = round((current / maximum) * blocks)
+
+    filled = max(0, min(filled, blocks))
+
+    return (
+        "█" * filled +
+        "░" * (blocks - filled)
+    )
+RARITY_TEXT = {
+    "COMMON": "⚪ Обычное",
+    "RARE": "🟢 Редкое",
+    "EPIC": "🟣 Эпическое",
+    "LEGENDARY": "🟡 Легендарное"
+}
+def format_achievement(
+    achievement,
+    progress
+):
+    rarity = RARITY_TEXT.get(
+        achievement.rarity,
+        "⚪ Обычное"
+    )
+
+    if progress["completed"]:
+
+       return (
+            f"{rarity}\n\n"
+            f"██████████\n\n"
+            f"✅ **Получено**\n\n"
+            f"⭐ Награда: **+{achievement.points} очков**"
+        )
+
+    if achievement.hidden:
+
+        return (
+            f"{rarity}\n\n"
+            f"🔒 Секретное достижение\n\n"
+            f"Получите его, чтобы узнать подробности."
+           )
+
+    if achievement.max_progress == 1:
+
+        return (
+            f"{rarity}\n\n"
+            "❌ Не получено\n\n"
+            f"⭐ Награда: **+{achievement.points} очков**"
+        )
+
+    bar = progress_bar(
+        progress["progress"],
+        achievement.max_progress
+    )
+
+    return (
+        f"{rarity}\n\n"
+        f"{bar}\n\n"
+        f"📈 Прогресс: "
+        f"**{progress['progress']} / {achievement.max_progress}**\n"
+        f"⏳ Осталось: "
+        f"**{progress['remaining']}**\n\n"
+        f"⭐ Награда: **+{achievement.points} очков**"
+    )
 
 async def get_achievements_embed(user: discord.User):
 
@@ -43,32 +115,20 @@ async def get_achievements_embed(user: discord.User):
         )
 
         if progress["completed"]:
-
             unlocked += 1
             points += achievement.points
 
-            value = "✅ Получено"
-
-        else:
-
-            if achievement.hidden:
-
-                value = "🔒 Секретное достижение"
-
-            elif achievement.max_progress == 1:
-
-                value = "❌ Не получено"
-
-            else:
-
-                value = (
-                    f"📈 {progress['progress']}/{achievement.max_progress}\n"
-                    f"Осталось: {progress['remaining']}"
-                )
+        status = format_achievement(
+            achievement,
+            progress
+        )
 
         embed.add_field(
             name=achievement.name,
-            value=value,
+            value=(
+                f"{achievement.description}\n\n"
+                f"{status}"
+            ),
             inline=False
         )
 
@@ -78,3 +138,128 @@ async def get_achievements_embed(user: discord.User):
     )
 
     return embed
+import discord
+
+from database.mafia.achievements import (
+    ACHIEVEMENTS,
+    GENERAL,
+    MAFIA,
+    DOCTOR,
+    SHERIFF,
+    HOOKER,
+    CIVILIAN,
+    SECRET,
+    LEGENDARY,
+)
+
+
+class AchievementView(discord.ui.View):
+
+    def __init__(self):
+
+        super().__init__(timeout=180)
+
+        self.add_item(
+            AchievementCategorySelect()
+        )
+@discord.ui.button(
+    label="🎮 Общие",
+    style=discord.ButtonStyle.primary,
+    row=0
+)
+async def general(
+    self,
+    interaction: discord.Interaction,
+    button: discord.ui.Button
+):
+    await interaction.response.edit_message(
+        embed=get_category_embed(
+            "🎮 Общие достижения",
+            GENERAL
+        ),
+        view=self
+    )
+def get_category_embed(
+    title,
+    category
+):
+
+    embed = discord.Embed(
+        title=title,
+        color=discord.Color.gold()
+    )
+
+    for achievement in category.values():
+
+        if achievement.hidden:
+
+            embed.add_field(
+                name="❓ Секретное достижение",
+                value="Получите его, чтобы узнать подробности.",
+                inline=False
+            )
+
+        else:
+
+            embed.add_field(
+                name=achievement.name,
+                value=achievement.description,
+                inline=False
+            )
+
+    return embed
+class AchievementCategorySelect(discord.ui.Select):
+
+
+    def __init__(self):
+
+        options = [
+
+            discord.SelectOption(
+                label="Общие",
+                emoji="🎮",
+                value="general"
+            ),
+
+            discord.SelectOption(
+                label="Мафия",
+                emoji="🔪",
+                value="mafia"
+            ),
+
+            discord.SelectOption(
+                label="Доктор",
+                emoji="💉",
+                value="doctor"
+            ),
+
+            discord.SelectOption(
+                label="Шериф",
+                emoji="👮",
+                value="sheriff"
+            ),
+
+            discord.SelectOption(
+                label="Проститутка",
+                emoji="💋",
+                value="hooker"
+            ),
+
+            discord.SelectOption(
+                label="Мирный",
+                emoji="👤",
+                value="civilian"
+            ),
+
+            discord.SelectOption(
+                label="Легендарные",
+                emoji="👑",
+                value="legendary"
+            )
+
+        ]
+
+        super().__init__(
+            placeholder="Выберите категорию достижений",
+            options=options
+        )

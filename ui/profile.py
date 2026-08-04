@@ -2,6 +2,10 @@ import discord
 
 from database.mafia.service import MafiaStatsService
 from ui.achievements import get_achievements_embed
+from ui.achievements import (
+    get_achievements_embed,
+    AchievementView
+)
 
 class ProfileView(discord.ui.View):
 
@@ -27,11 +31,16 @@ class ProfileView(discord.ui.View):
         interaction: discord.Interaction,
         button: discord.ui.Button
     ):
-        await interaction.response.send_message(
-            "🏆 Раздел достижений скоро появится.",
-            ephemeral=True
+
+        embed = await get_achievements_embed(
+            interaction.user
         )
 
+        await interaction.response.send_message(
+            embed=embed,
+            view=AchievementView(),
+            ephemeral=True
+        )
     @discord.ui.button(
         label="🎭 Роли",
         style=discord.ButtonStyle.primary,
