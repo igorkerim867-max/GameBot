@@ -702,8 +702,19 @@ class BunkerGame:
         self.phase = "reveal"
 
         for player in self.players:
-
             player.voted = False
+
+        await self.game_channel.send(
+            embed=discord.Embed(
+                title=f"🔓 Раунд {self.round}/{self.MAX_ROUNDS}",
+                description=(
+                    "Начинается новый раунд.\n\n"
+                    "Каждый активный игрок должен "
+                    "раскрыть одну карту."
+                ),
+                color=discord.Color.blue(),
+            )
+        )
 
         await self.update_game_message()
 
@@ -804,27 +815,28 @@ class BunkerRevealView(discord.ui.View):
         if player.exiled:
 
             await interaction.response.send_message(
-                "❌ Вы уже изгнаны.",
+                "❌ Вы уже изгнаны и больше не раскрываете карты.",
                 ephemeral=True,
             )
             return
 
+        # Игрок уже раскрыл карту в этом раунде
         if len(player.revealed) >= self.game.round:
 
             await interaction.response.send_message(
-                "❌ В этом раунде вы уже раскрыли карту.",
+                "❌ Вы уже раскрыли карту в этом раунде.",
                 ephemeral=True,
             )
             return
 
         await interaction.response.send_message(
-            "Выберите карту, которую хотите раскрыть:",
+            "🎴 **Выберите карту для раскрытия:**",
             view=BunkerRevealSelectView(
-                self.game
+                self.game,
+                player,
             ),
             ephemeral=True,
         )
-
 
 # ==============================================================
 # SELECT — РАСКРЫТИЕ КАРТЫ
@@ -832,14 +844,21 @@ class BunkerRevealView(discord.ui.View):
 
 class BunkerRevealSelectView(discord.ui.View):
 
-    def __init__(self, game):
+    def __init__(
+        self,
+        game,
+        player,
+    ):
 
         super().__init__(
             timeout=60
         )
 
         self.add_item(
-            BunkerCharacteristicSelect(game)
+            BunkerCharacteristicSelect(
+                game,
+                player,
+            )
         )
 
 
@@ -847,46 +866,77 @@ class BunkerCharacteristicSelect(
     discord.ui.Select
 ):
 
-    def __init__(self, game):
+    def __init__(
+        self,
+        game,
+        player,
+    ):
 
         self.game = game
+        self.player = player
 
-        options = [
-            discord.SelectOption(
-                label="Суперсила",
-                emoji="💪",
-                value="superpower",
+        # Все возможные карты
+        all_cards = [
+            (
+                "superpower",
+                "Суперсила",
+                "💪",
             ),
-            discord.SelectOption(
-                label="Фобия",
-                emoji="😱",
-                value="phobia",
+            (
+                "phobia",
+                "Фобия",
+                "😱",
             ),
-            discord.SelectOption(
-                label="Характер",
-                emoji="🧠",
-                value="character",
+            (
+                "character",
+                "Характер",
+                "🧠",
             ),
-            discord.SelectOption(
-                label="Хобби",
-                emoji="🎯",
-                value="hobby",
+            (
+                "hobby",
+                "Хобби",
+                "🎯",
             ),
-            discord.SelectOption(
-                label="Багаж",
-                emoji="🎒",
-                value="baggage",
+            (
+                "baggage",
+                "Багаж",
+                "🎒",
             ),
-            discord.SelectOption(
-                label="Факты",
-                emoji="📋",
-                value="fact",
+            (
+                "fact",
+                "Факты",
+                "📋",
             ),
         ]
+
+        options = []
+
+        for card_type, label, emoji in all_cards:
+
+            # Уже раскрытая карта больше
+            # не появляется в меню
+            if card_type in player.revealed:
+                continue
+
+            # В первом раунде можно открыть
+            # ТОЛЬКО Суперсилу
+            if game.round == 1:
+                if card_type != "superpower":
+                    continue
+
+            options.append(
+                discord.SelectOption(
+                    label=label,
+                    emoji=emoji,
+                    value=card_type,
+                )
+            )
 
         super().__init__(
             placeholder="Выберите карту",
             options=options,
+            min_values=1,
+            max_values=1,
         )
 
     async def callback(
@@ -894,10 +944,12 @@ class BunkerCharacteristicSelect(
         interaction: discord.Interaction,
     ):
 
+        card_type = self.values[0]
+
         success, message = (
             await self.game.reveal_card(
                 interaction.user.id,
-                self.values[0],
+                card_type,
             )
         )
 
