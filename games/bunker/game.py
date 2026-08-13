@@ -495,43 +495,79 @@ class BunkerGame:
 
     async def start_voting_phase(self):
 
+        player_count = len(self.players)
+
         votes_count = self.VOTING_SCHEDULE[
-            len(self.players)
+            player_count
         ][self.round]
 
-        # В этом раунде голосования нет
+        # ==========================================
+        # В ЭТОМ РАУНДЕ ГОЛОСОВАНИЯ НЕТ
+        # ==========================================
+
         if votes_count == 0:
 
+            await self.game_channel.send(
+                embed=discord.Embed(
+                    title=f"🏁 Раунд {self.round} завершён",
+                    description=(
+                    f"Все игроки раскрыли карты.\n\n"
+                    f"🗳️ В этом раунде голосования нет."
+                    ),
+                    color=discord.Color.orange(),
+                )
+            )
+
+            # Если это был последний раунд
             if self.round >= self.MAX_ROUNDS:
+
                 await self.finish_game()
                 return
 
+            # Переходим к следующему раунду
             self.round += 1
 
             await self.game_channel.send(
-                f"➡️ **Раунд {self.round}/{self.MAX_ROUNDS}**"
+                embed=discord.Embed(
+                    title=f"🔄 Раунд {self.round}",
+                    description=(
+                    f"Начинается раунд "
+                    f"**{self.round}/{self.MAX_ROUNDS}**."
+                    ),
+                    color=discord.Color.blue(),
+                )
             )
 
             await self.start_reveal_phase()
+
             return
 
-        # В этом раунде есть голосование
+        # ==========================================
+        # В ЭТОМ РАУНДЕ ЕСТЬ ГОЛОСОВАНИЕ
+        # ==========================================
+
         self.phase = "voting"
         self.votes = {}
+
         self.current_vote_number = 1
         self.votes_required = votes_count
 
         for player in self.players:
-           player.voted = False
+            player.voted = False
 
         await self.game_channel.send(
-        f"🗳️ **ГОЛОСОВАНИЕ**\n\n"
-        f"Это голосование "
-        f"**{self.current_vote_number}/{self.votes_required}** "
-        f"в этом раунде.\n\n"
-        "Все игроки, включая изгнанных, "
-        "участвуют в голосовании."
-        ) 
+            embed=discord.Embed(
+                title="🗳️ Голосование",
+                description=(
+                f"Голосование "
+                f"**{self.current_vote_number}/"
+                f"{self.votes_required}**\n\n"
+                "Все игроки, включая изгнанных, "
+                "участвуют в голосовании."
+                ),
+                color=discord.Color.red(),
+            )
+        )
 
         await self.update_game_message()
 
