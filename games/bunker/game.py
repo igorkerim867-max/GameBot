@@ -1,18 +1,65 @@
 from __future__ import annotations
 
+import random
+
 import discord
 
 from games.bunker.player import BunkerPlayer
-from games.bunker.cards import generate_character
+from games.bunker.cards import (
+    generate_character,
+    get_random_catastrophe,
+)
 from games.room_manager import room_manager
 
 
 class BunkerGame:
 
-    MAX_PLAYERS = 6
-    WINNERS = 3
+    MIN_PLAYERS = 4
+    MAX_PLAYERS = 16
+    MAX_ROUNDS = 5
+    VOTING_SCHEDULE = {
+        4:  {1: 0, 2: 0, 3: 0, 4: 1, 5: 1},
+        5:  {1: 0, 2: 0, 3: 1, 4: 1, 5: 1},
+        6:  {1: 0, 2: 0, 3: 1, 4: 1, 5: 1},
+        7:  {1: 0, 2: 1, 3: 1, 4: 1, 5: 1},
+        8:  {1: 0, 2: 1, 3: 1, 4: 1, 5: 1},
+        9:  {1: 0, 2: 1, 3: 1, 4: 1, 5: 2},
+        10: {1: 0, 2: 1, 3: 1, 4: 1, 5: 2},
+        11: {1: 0, 2: 1, 3: 1, 4: 2, 5: 2},
+        12: {1: 0, 2: 1, 3: 1, 4: 2, 5: 2},
+        13: {1: 0, 2: 1, 3: 2, 4: 2, 5: 2},
+        14: {1: 0, 2: 1, 3: 2, 4: 2, 5: 2},
+        15: {1: 0, 2: 2, 3: 2, 4: 2, 5: 2},
+        16: {1: 0, 2: 2, 3: 2, 4: 2, 5: 2},
+    }
+
+    BUNKER_PLACES = {
+        4: 2,
+        5: 2,
+        6: 3,
+        7: 3,
+        8: 4,
+        9: 4,
+        10: 5,
+        11: 5,
+        12: 6,
+        13: 6,
+        14: 7,
+        15: 7,
+        16: 8,
+    }
+
+    CARD_NAMES = {
+        "superpower": "💪 Суперсила",
+        "phobia": "😱 Фобия",
+        "character": "🧠 Характер",
+        "hobby": "🎯 Хобби",
+        "baggage": "🎒 Багаж",
+        "fact": "📋 Факты",
+    }
 
     def __init__(self, bot: discord.Client, room):
+
         self.bot = bot
         self.room = room
 
@@ -25,24 +72,44 @@ class BunkerGame:
         self.finished = False
 
         self.round = 0
+        self.phase = "waiting"
+
+        self.bunker_places = 0
+
+        self.catastrophe = get_random_catastrophe()
 
         self.game_channel = None
         self.game_message = None
 
-        self.phase = "waiting"
-
         self.votes: dict[int, int] = {}
 
+    # ==========================================================
+    # ИГРОКИ
+    # ==========================================================
+
     @property
-    def alive_players(self):
+    def active_players(self):
+        """
+        Игроки, которых ещё можно изгнать.
+        Они продолжают раскрывать карты.
+        """
         return [
             player
             for player in self.players
-            if player.alive
+            if not player.exiled
         ]
 
+    @property
+    def voting_players(self):
+        """
+        Все игроки голосуют, включая изгнанных.
+        """
+        return self.players
+
     def get_player(self, user_id: int):
+
         for player in self.players:
+
             if player.user_id == user_id:
                 return player
 
@@ -54,29 +121,88 @@ class BunkerGame:
 
     async def start(self):
 
-        if len(self.players) != self.MAX_PLAYERS:
+        player_count = len(self.players)
+
+        if not (
+            self.MIN_PLAYERS
+            <= player_count
+            <= self.MAX_PLAYERS
+        ):
             raise ValueError(
-                "Для Бункера необходимо ровно 6 игроков."
+                "Для Бункера необходимо от 4 до 16 игроков."
             )
+
+        self.bunker_places = self.BUNKER_PLACES[
+            player_count
+        ]
 
         self.started = True
         self.finished = False
         self.round = 1
+        self.phase = "reveal"
 
-        print("========== BUNKER START ==========")
+        print(
+            f"========== BUNKER START: "
+            f"{player_count} PLAYERS =========="
+        )
 
+        # Раздаём карты
         self.give_characteristics()
 
+        # Отправляем карты игрокам в ЛС
         await self.send_characteristics()
 
-        await self.create_game_message()
+        # Сначала показываем катастрофу
+        await self.send_catastrophe()
 
-        await self.start_reveal_phase()
+        # Затем создаём игровое сообщение
+        await self.create_game_message()
 
         print("========== BUNKER READY ==========")
 
     # ==========================================================
-    # ХАРАКТЕРИСТИКИ
+    # КАТАСТРОФА
+    # ==========================================================
+
+    async def send_catastrophe(self):
+
+        if self.game_channel is None:
+            return
+
+        embed = discord.Embed(
+            title="☢️ КАТАСТРОФА",
+            description=self.catastrophe["description"],
+            color=discord.Color.red(),
+        )
+
+        embed.add_field(
+            name="🏚️ Мест в Бункере",
+            value=f"**{self.bunker_places}**",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="👥 Игроков",
+            value=f"**{len(self.players)}**",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="🎯 Цель игры",
+            value=(
+                "Доказать свою полезность для выживания "
+                "и попасть в число тех, кто останется "
+                "в Бункере."
+            ),
+            inline=False,
+        )
+
+        await self.game_channel.send(
+            embed=embed
+        )
+
+    # ==========================================================
+    # КАРТЫ
     # ==========================================================
 
     def give_characteristics(self):
@@ -85,18 +211,20 @@ class BunkerGame:
 
             data = generate_character()
 
-            player.profession = data["profession"]
-            player.health = data["health"]
+            player.superpower = data["superpower"]
+            player.phobia = data["phobia"]
             player.character = data["character"]
-            player.baggage = data["baggage"]
             player.hobby = data["hobby"]
-            player.special = data["special"]
-            player.additional_info = data["additional_info"]
+            player.baggage = data["baggage"]
+            player.fact = data["fact"]
+
+            player.special_condition = data.get(
+                "special_condition"
+            )
 
             player.revealed = []
-
-            player.alive = True
             player.voted = False
+            player.exiled = False
 
     async def send_characteristics(self):
 
@@ -109,7 +237,7 @@ class BunkerGame:
                 )
 
                 await user.send(
-                    self.build_private_card(player)
+                    embed=self.build_private_card(player)
                 )
 
             except discord.Forbidden:
@@ -119,28 +247,69 @@ class BunkerGame:
                     f"{player.user_id}"
                 )
 
-            except Exception as e:
+            except Exception as error:
 
                 print(
                     f"[BUNKER] Ошибка отправки ЛС "
-                    f"{player.user_id}: {e}"
+                    f"{player.user_id}: {error}"
                 )
 
     def build_private_card(self, player):
 
-        return (
-            "🏚️ **Бункер — ваша карточка**\n\n"
-
-            f"💼 **Профессия:** {player.profession}\n"
-            f"❤️ **Здоровье:** {player.health}\n"
-            f"🧠 **Характер:** {player.character}\n"
-            f"🎒 **Багаж:** {player.baggage}\n"
-            f"🎯 **Хобби:** {player.hobby}\n"
-            f"🧬 **Особенность:** {player.special}\n"
-            f"📚 **Дополнительно:** {player.additional_info}\n\n"
-
-            "⚠️ Не показывайте эту информацию другим игрокам."
+        embed = discord.Embed(
+            title="🏚️ Бункер — ваша карточка",
+            description=(
+                "Это ваши личные характеристики.\n"
+                "Не показывайте их другим игрокам."
+            ),
+            color=discord.Color.dark_gold(),
         )
+
+        embed.add_field(
+            name="💪 Суперсила",
+            value=player.superpower,
+            inline=False,
+        )
+
+        embed.add_field(
+            name="😱 Фобия",
+            value=player.phobia,
+            inline=False,
+        )
+
+        embed.add_field(
+            name="🧠 Характер",
+            value=player.character,
+            inline=False,
+        )
+
+        embed.add_field(
+            name="🎯 Хобби",
+            value=player.hobby,
+            inline=False,
+        )
+
+        embed.add_field(
+            name="🎒 Багаж",
+            value=player.baggage,
+            inline=False,
+        )
+
+        embed.add_field(
+            name="📋 Факты",
+            value=player.fact,
+            inline=False,
+        )
+
+        if player.special_condition:
+
+            embed.add_field(
+                name="⭐ Особое условие",
+                value=player.special_condition,
+                inline=False,
+            )
+
+        return embed
 
     # ==========================================================
     # ИГРОВОЕ СООБЩЕНИЕ
@@ -151,74 +320,79 @@ class BunkerGame:
         if self.game_channel is None:
             return
 
-        embed = self.build_game_embed()
-
         self.game_message = await self.game_channel.send(
-            embed=embed,
-            view=BunkerRevealView(self)
+            embed=self.build_game_embed(),
+            view=BunkerRevealView(self),
         )
 
     def build_game_embed(self):
 
         embed = discord.Embed(
             title="🏚️ БУНКЕР",
-            color=discord.Color.dark_gold()
+            color=discord.Color.dark_gold(),
         )
 
         if self.phase == "reveal":
 
             description = (
-                f"### 🔓 Раунд {self.round}\n\n"
-                "Каждый живой игрок должен раскрыть "
-                "**одну характеристику**.\n\n"
-                "После этого начнётся голосование."
+                f"### 🔓 Раунд {self.round}/{self.MAX_ROUNDS}\n\n"
+                "Каждый игрок, который ещё не изгнан, "
+                "должен раскрыть **одну карту**.\n\n"
+                "После раскрытия всех карт начнётся голосование."
             )
 
         elif self.phase == "voting":
 
             description = (
-                f"### 🗳 Раунд {self.round}\n\n"
-                "Выберите игрока, которого хотите "
-                "исключить из Бункера."
+                f"### 🗳 Голосование — раунд "
+                f"{self.round}/{self.MAX_ROUNDS}\n\n"
+                "Все игроки должны проголосовать."
             )
 
         else:
 
-            description = "Игра начинается..."
+            description = "Игра завершена."
 
         embed.description = description
 
         players_text = []
 
-        for player in self.players:
+        for number, player in enumerate(
+            self.players,
+            start=1,
+        ):
 
-            if not player.alive:
-
-                status = "❌ ВЫБЫЛ"
-
+            if player.exiled:
+                status = "❌ Изгнан"
             else:
+                status = "🟢 В игре"
 
-                status = "🟢 Жив"
-
-            mention = f"<@{player.user_id}>"
-
-            revealed_count = len(player.revealed)
+            revealed_count = len(
+                player.revealed
+            )
 
             players_text.append(
-                f"{mention} — {status} "
-                f"• раскрыто: **{revealed_count}**"
+                f"**{number}.** <@{player.user_id}> "
+                f"— {status} "
+                f"• карт открыто: **{revealed_count}**"
             )
 
         embed.add_field(
-            name=f"👥 Игроки ({len(self.alive_players)}/6)",
+            name=(
+                f"👥 Игроки "
+                f"({len(self.active_players)}/{len(self.players)})"
+            ),
             value="\n".join(players_text),
-            inline=False
+            inline=False,
         )
 
         embed.add_field(
-            name="🏆 Условие победы",
-            value="В Бункере должны остаться **3 игрока**.",
-            inline=False
+            name="🏚️ Бункер",
+            value=(
+                f"Мест: **{self.bunker_places}**\n"
+                f"Игроков останется: **{self.bunker_places}**"
+            ),
+            inline=False,
         )
 
         return embed
@@ -230,7 +404,7 @@ class BunkerGame:
 
         await self.game_message.edit(
             embed=self.build_game_embed(),
-            view=self.get_current_view()
+            view=self.get_current_view(),
         )
 
     def get_current_view(self):
@@ -247,46 +421,56 @@ class BunkerGame:
     # РАСКРЫТИЕ
     # ==========================================================
 
-    async def start_reveal_phase(self):
-
-        self.phase = "reveal"
-
-        for player in self.players:
-            player.revealed = []
-
-        await self.update_game_message()
-
-    async def reveal_characteristic(
+    async def reveal_card(
         self,
         user_id: int,
-        characteristic: str
+        card_type: str,
     ):
 
         player = self.get_player(user_id)
 
         if player is None:
-            return False, "Вы не участвуете в этой игре."
+            return False, "Вы не участвуете в игре."
 
-        if not player.alive:
-            return False, "❌ Вы уже выбыли."
+        if player.exiled:
+            return (
+                False,
+                "❌ Вы уже изгнаны и больше не раскрываете карты.",
+            )
 
-        if characteristic in player.revealed:
-            return False, "❌ Вы уже раскрыли эту характеристику."
+        if card_type not in self.CARD_NAMES:
+            return False, "❌ Неизвестная карта."
 
-        value = getattr(player, characteristic, None)
+        if card_type in player.revealed:
+            return (
+                False,
+                "❌ Эта карта уже была раскрыта.",
+            )
+
+        if len(player.revealed) >= self.round:
+            return (
+                False,
+                "❌ В этом раунде вы уже раскрыли карту.",
+            )
+
+        value = getattr(
+            player,
+            card_type,
+            None,
+        )
 
         if value is None:
-            return False, "❌ Такая характеристика не найдена."
+            return False, "❌ Карта не найдена."
 
-        player.revealed.append(characteristic)
+        player.reveal(card_type)
 
         await self.game_channel.send(
-            f"🔓 <@{user_id}> раскрыл характеристику "
-            f"**{self.characteristic_name(characteristic)}**:\n"
+            f"🔓 <@{user_id}> раскрывает "
+            f"**{self.CARD_NAMES[card_type]}**:\n"
             f"> {value}"
         )
 
-        if self.all_alive_revealed():
+        if self.all_active_players_revealed():
 
             await self.start_voting_phase()
 
@@ -294,30 +478,16 @@ class BunkerGame:
 
             await self.update_game_message()
 
-        return True, "Характеристика раскрыта."
+        return True, "Карта раскрыта."
 
-    def all_alive_revealed(self):
+    def all_active_players_revealed(self):
 
-        for player in self.alive_players:
+        for player in self.active_players:
 
-            if len(player.revealed) == 0:
+            if len(player.revealed) < self.round:
                 return False
 
         return True
-
-    def characteristic_name(self, key):
-
-        names = {
-            "profession": "💼 Профессия",
-            "health": "❤️ Здоровье",
-            "character": "🧠 Характер",
-            "baggage": "🎒 Багаж",
-            "hobby": "🎯 Хобби",
-            "special": "🧬 Особенность",
-            "additional_info": "📚 Дополнительно",
-        }
-
-        return names.get(key, key)
 
     # ==========================================================
     # ГОЛОСОВАНИЕ
@@ -325,43 +495,70 @@ class BunkerGame:
 
     async def start_voting_phase(self):
 
+        votes_count = self.VOTING_SCHEDULE[
+            len(self.players)
+        ][self.round]
+
+        # В этом раунде голосования нет
+        if votes_count == 0:
+
+            if self.round >= self.MAX_ROUNDS:
+                await self.finish_game()
+                return
+
+            self.round += 1
+
+            await self.game_channel.send(
+                f"➡️ **Раунд {self.round}/{self.MAX_ROUNDS}**"
+            )
+
+            await self.start_reveal_phase()
+            return
+
+        # В этом раунде есть голосование
         self.phase = "voting"
         self.votes = {}
+        self.current_vote_number = 1
+        self.votes_required = votes_count
 
         for player in self.players:
-            player.voted = False
+           player.voted = False
 
         await self.game_channel.send(
-            "🗳 **Голосование начинается!**\n\n"
-            "Каждый живой игрок должен выбрать одного "
-            "игрока для исключения."
-        )
+        f"🗳️ **ГОЛОСОВАНИЕ**\n\n"
+        f"Это голосование "
+        f"**{self.current_vote_number}/{self.votes_required}** "
+        f"в этом раунде.\n\n"
+        "Все игроки, включая изгнанных, "
+        "участвуют в голосовании."
+        ) 
 
         await self.update_game_message()
 
     async def vote(
         self,
         voter_id: int,
-        target_id: int
+        target_id: int,
     ):
 
         voter = self.get_player(voter_id)
         target = self.get_player(target_id)
 
-        if voter is None or target is None:
+        if voter is None:
+            return False, "Вы не участвуете в игре."
+
+        if target is None:
             return False, "Игрок не найден."
 
-        if not voter.alive:
-            return False, "❌ Вы выбыли."
+        # Изгнанные тоже голосуют.
+        if voter.voted:
+            return False, "❌ Вы уже проголосовали."
 
-        if not target.alive:
-            return False, "❌ Этот игрок уже выбыл."
+        if target.exiled:
+            return False, "❌ Этот игрок уже изгнан."
 
         if voter_id == target_id:
             return False, "❌ Нельзя голосовать за себя."
-
-        if voter.voted:
-            return False, "❌ Вы уже проголосовали."
 
         self.votes[voter_id] = target_id
         voter.voted = True
@@ -370,7 +567,7 @@ class BunkerGame:
             f"🗳 <@{voter_id}> проголосовал."
         )
 
-        if self.all_alive_voted():
+        if self.all_players_voted():
 
             await self.finish_voting()
 
@@ -380,30 +577,29 @@ class BunkerGame:
 
         return True, "Голос принят."
 
-    def all_alive_voted(self):
+    def all_players_voted(self):
 
-        for player in self.alive_players:
-
-            if not player.voted:
-                return False
-
-        return True
+        return all(
+            player.voted
+            for player in self.voting_players
+        )
 
     async def finish_voting(self):
+
+        if not self.votes:
+            return
 
         counts = {}
 
         for target_id in self.votes.values():
 
-            counts[target_id] = counts.get(
-                target_id,
-                0
-            ) + 1
+            counts[target_id] = (
+                counts.get(target_id, 0) + 1
+            )
 
-        if not counts:
-            return
-
-        max_votes = max(counts.values())
+        max_votes = max(
+            counts.values()
+        )
 
         candidates = [
             player_id
@@ -411,36 +607,69 @@ class BunkerGame:
             if votes == max_votes
         ]
 
-        # Если ничья — случайный выбор
-        import random
-
-        eliminated_id = random.choice(candidates)
+        eliminated_id = random.choice(
+            candidates
+        )
 
         eliminated = self.get_player(
             eliminated_id
         )
 
-        eliminated.kill()
+        eliminated.exile()
 
         await self.game_channel.send(
-            f"❌ **<@{eliminated_id}> выбывает из Бункера!**\n\n"
-            f"Количество голосов: **{max_votes}**"
+            f"❌ **<@{eliminated_id}> изгнан!**\n\n"
+            f"Получено голосов: **{max_votes}**"
         )
 
-        # Проверяем победу
-        if len(self.alive_players) <= self.WINNERS:
+        # Последний раунд
+        if self.current_vote_number < self.votes_required:
+
+            self.current_vote_number += 1
+            self.votes = {}
+
+            for player in self.players:
+               player.voted = False
+
+            await self.game_channel.send(
+        f"🗳️ **Второе голосование "
+        f"{self.current_vote_number}/{self.votes_required}**"
+            )
+
+            await self.update_game_message()
+            return
+
+
+        if self.round >= self.MAX_ROUNDS:
 
             await self.finish_game()
-
             return
+
 
         self.round += 1
 
+
+
         await self.game_channel.send(
-            f"🔄 Начинается **раунд {self.round}**."
+            f"🔄 **Начинается раунд "
+            f"{self.round}/{self.MAX_ROUNDS}.**"
         )
 
         await self.start_reveal_phase()
+
+    # ==========================================================
+    # НОВЫЙ РАУНД
+    # ==========================================================
+
+    async def start_reveal_phase(self):
+
+        self.phase = "reveal"
+
+        for player in self.players:
+
+            player.voted = False
+
+        await self.update_game_message()
 
     # ==========================================================
     # ЗАВЕРШЕНИЕ
@@ -452,26 +681,49 @@ class BunkerGame:
         self.started = False
         self.phase = "finished"
 
-        winners = self.alive_players
+        winners = self.active_players
+
+        # Если каким-то образом осталось больше мест,
+        # выбираем только нужное количество.
+        if len(winners) > self.bunker_places:
+
+            winners = winners[
+                :self.bunker_places
+            ]
 
         winner_text = "\n".join(
             f"🏆 <@{player.user_id}>"
             for player in winners
         )
 
-        await self.game_channel.send(
-            embed=discord.Embed(
-                title="🏆 БУНКЕР ЗАВЕРШЁН!",
-                description=(
-                    "В Бункере осталось достаточно мест.\n\n"
-                    "### Победители:\n"
-                    f"{winner_text}"
-                ),
-                color=discord.Color.gold()
-            )
+        embed = discord.Embed(
+            title="🏆 БУНКЕР ЗАВЕРШЁН!",
+            description=(
+                f"После {self.MAX_ROUNDS} раундов "
+                "определены люди, которые попадают "
+                "в Бункер.\n\n"
+                f"### 🏚️ Выжившие:\n"
+                f"{winner_text}"
+            ),
+            color=discord.Color.gold(),
         )
 
-        # Удаляем комнату
+        embed.add_field(
+            name="☢️ Катастрофа",
+            value=self.catastrophe["description"],
+            inline=False,
+        )
+
+        embed.add_field(
+            name="🏚️ Мест в Бункере",
+            value=str(self.bunker_places),
+            inline=True,
+        )
+
+        await self.game_channel.send(
+            embed=embed
+        )
+
         room_manager.delete_room(
             self.room.owner_id
         )
@@ -483,20 +735,22 @@ class BunkerGame:
 
 class BunkerRevealView(discord.ui.View):
 
-    def __init__(self, game: BunkerGame):
+    def __init__(self, game):
 
-        super().__init__(timeout=None)
+        super().__init__(
+            timeout=None
+        )
 
         self.game = game
 
     @discord.ui.button(
-        label="🔓 Раскрыть характеристику",
-        style=discord.ButtonStyle.primary
+        label="🔓 Раскрыть карту",
+        style=discord.ButtonStyle.primary,
     )
     async def reveal(
         self,
         interaction: discord.Interaction,
-        button: discord.ui.Button
+        button: discord.ui.Button,
     ):
 
         player = self.game.get_player(
@@ -506,116 +760,118 @@ class BunkerRevealView(discord.ui.View):
         if player is None:
 
             await interaction.response.send_message(
-                "❌ Вы не участвуете в этой игре.",
-                ephemeral=True
+                "❌ Вы не участвуете в игре.",
+                ephemeral=True,
             )
-
             return
 
-        if not player.alive:
+        if player.exiled:
 
             await interaction.response.send_message(
-                "❌ Вы уже выбыли.",
-                ephemeral=True
+                "❌ Вы уже изгнаны.",
+                ephemeral=True,
             )
-
             return
 
-        if len(player.revealed) > 0:
+        if len(player.revealed) >= self.game.round:
 
             await interaction.response.send_message(
-                "❌ В этом раунде вы уже раскрыли характеристику.",
-                ephemeral=True
+                "❌ В этом раунде вы уже раскрыли карту.",
+                ephemeral=True,
             )
-
             return
 
         await interaction.response.send_message(
-            "Выберите характеристику:",
-            view=BunkerRevealSelectView(self.game),
-            ephemeral=True
+            "Выберите карту, которую хотите раскрыть:",
+            view=BunkerRevealSelectView(
+                self.game
+            ),
+            ephemeral=True,
         )
 
 
 # ==============================================================
-# SELECT — ХАРАКТЕРИСТИКА
+# SELECT — РАСКРЫТИЕ КАРТЫ
 # ==============================================================
 
 class BunkerRevealSelectView(discord.ui.View):
 
-    def __init__(self, game: BunkerGame):
+    def __init__(self, game):
 
-        super().__init__(timeout=60)
-
-        self.game = game
+        super().__init__(
+            timeout=60
+        )
 
         self.add_item(
             BunkerCharacteristicSelect(game)
         )
 
 
-class BunkerCharacteristicSelect(discord.ui.Select):
+class BunkerCharacteristicSelect(
+    discord.ui.Select
+):
 
-    def __init__(self, game: BunkerGame):
+    def __init__(self, game):
 
         self.game = game
 
         options = [
             discord.SelectOption(
-                label="Профессия",
-                emoji="💼",
-                value="profession"
+                label="Суперсила",
+                emoji="💪",
+                value="superpower",
             ),
             discord.SelectOption(
-                label="Здоровье",
-                emoji="❤️",
-                value="health"
+                label="Фобия",
+                emoji="😱",
+                value="phobia",
             ),
             discord.SelectOption(
                 label="Характер",
                 emoji="🧠",
-                value="character"
-            ),
-            discord.SelectOption(
-                label="Багаж",
-                emoji="🎒",
-                value="baggage"
+                value="character",
             ),
             discord.SelectOption(
                 label="Хобби",
                 emoji="🎯",
-                value="hobby"
+                value="hobby",
             ),
             discord.SelectOption(
-                label="Особенность",
-                emoji="🧬",
-                value="special"
+                label="Багаж",
+                emoji="🎒",
+                value="baggage",
             ),
             discord.SelectOption(
-                label="Дополнительно",
-                emoji="📚",
-                value="additional_info"
-            )
+                label="Факты",
+                emoji="📋",
+                value="fact",
+            ),
         ]
 
         super().__init__(
-            placeholder="Выберите характеристику",
-            options=options
+            placeholder="Выберите карту",
+            options=options,
         )
 
     async def callback(
         self,
-        interaction: discord.Interaction
+        interaction: discord.Interaction,
     ):
 
-        success, message = await self.game.reveal_characteristic(
-            interaction.user.id,
-            self.values[0]
+        success, message = (
+            await self.game.reveal_card(
+                interaction.user.id,
+                self.values[0],
+            )
         )
 
         await interaction.response.send_message(
-            "✅ " + message if success else message,
-            ephemeral=True
+            (
+                "✅ " + message
+                if success
+                else message
+            ),
+            ephemeral=True,
         )
 
 
@@ -623,54 +879,72 @@ class BunkerCharacteristicSelect(discord.ui.Select):
 # VIEW — ГОЛОСОВАНИЕ
 # ==============================================================
 
-class BunkerVoteView(discord.ui.View):
+class BunkerVoteView(
+    discord.ui.View
+):
 
-    def __init__(self, game: BunkerGame):
+    def __init__(self, game):
 
-        super().__init__(timeout=None)
-
-        self.game = game
+        super().__init__(
+            timeout=None
+        )
 
         self.add_item(
             BunkerVoteSelect(game)
         )
 
 
-class BunkerVoteSelect(discord.ui.Select):
+class BunkerVoteSelect(
+    discord.ui.Select
+):
 
-    def __init__(self, game: BunkerGame):
+    def __init__(self, game):
 
         self.game = game
 
         options = []
 
-        for player in game.alive_players:
+        for index, player in enumerate(
+            game.active_players,
+            start=1,
+        ):
 
             options.append(
                 discord.SelectOption(
-                    label=f"Игрок {player.user_id}",
-                    value=str(player.user_id)
+                    label=f"Игрок {index}",
+                    description="Проголосовать за исключение",
+                    value=str(
+                        player.user_id
+                    ),
                 )
             )
 
         super().__init__(
             placeholder="Выберите игрока",
-            options=options[:25]
+            options=options[:25],
         )
 
     async def callback(
         self,
-        interaction: discord.Interaction
+        interaction: discord.Interaction,
     ):
 
-        target_id = int(self.values[0])
+        target_id = int(
+            self.values[0]
+        )
 
-        success, message = await self.game.vote(
-            interaction.user.id,
-            target_id
+        success, message = (
+            await self.game.vote(
+                interaction.user.id,
+                target_id,
+            )
         )
 
         await interaction.response.send_message(
-            "✅ " + message if success else message,
-            ephemeral=True
+            (
+                "✅ " + message
+                if success
+                else message
+            ),
+            ephemeral=True,
         )

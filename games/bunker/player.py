@@ -3,29 +3,29 @@ class BunkerPlayer:
     def __init__(self, user_id):
         self.user_id = user_id
 
-        # Характеристики игрока
-        self.profession = None
-        self.health = None
+        # Карты персонажа
+        self.superpower = None
+        self.phobia = None
         self.character = None
-        self.baggage = None
         self.hobby = None
-        self.special = None
-        self.additional_info = None
+        self.baggage = None
+        self.fact = None
+
+        # Особое условие
+        self.special_condition = None
 
         # Состояние игрока
-        self.alive = True
+        self.exiled = False
         self.revealed = []
         self.voted = False
 
-    def reveal(self, characteristic):
-        """
-        Открыть одну из своих характеристик.
-        """
-        if characteristic not in self.revealed:
-            self.revealed.append(characteristic)
+    def reveal(self, card_type):
 
-    def is_alive(self):
-        return self.alive
+        if card_type not in self.revealed:
+            self.revealed.append(card_type)
 
-    def kill(self):
-        self.alive = False
+    def is_exiled(self):
+        return self.exiled
+
+    def exile(self):
+        self.exiled = True
