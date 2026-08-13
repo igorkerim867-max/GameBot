@@ -318,13 +318,22 @@ class BunkerGame:
     async def create_game_message(self):
 
         if self.game_channel is None:
+            print("[BUNKER] ERROR: game_channel is None")
             return
+
+        print("[BUNKER] Creating game message...")
+        print(f"[BUNKER] Phase: {self.phase}")
+        print(f"[BUNKER] Round: {self.round}")
 
         self.game_message = await self.game_channel.send(
             embed=self.build_game_embed(),
-            view=BunkerRevealView(self),
+            view=self.get_current_view()
         )
 
+        print(
+            f"[BUNKER] Game message created: "
+            f"{self.game_message.id}"
+        )
     def build_game_embed(self):
 
         embed = discord.Embed(
@@ -400,23 +409,23 @@ class BunkerGame:
     async def update_game_message(self):
 
         if self.game_message is None:
+            print("[BUNKER] ERROR: game_message is None")
             return
+
+        print(
+            f"[BUNKER] Updating message | "
+            f"round={self.round} | "
+            f"phase={self.phase}"
+        )
+
+        view = self.get_current_view()
 
         await self.game_message.edit(
             embed=self.build_game_embed(),
-            view=self.get_current_view(),
+            view=view
         )
 
-    def get_current_view(self):
-
-        if self.phase == "reveal":
-            return BunkerRevealView(self)
-
-        if self.phase == "voting":
-            return BunkerVoteView(self)
-
-        return discord.ui.View()
-
+        print("[BUNKER] Game message updated")
     # ==========================================================
     # РАСКРЫТИЕ
     # ==========================================================
@@ -472,9 +481,19 @@ class BunkerGame:
 
         if self.all_active_players_revealed():
 
+            print(
+                f"[BUNKER] All active players revealed "
+                f"in round {self.round}"
+            )
+
             await self.start_voting_phase()
 
         else:
+
+            print(
+                f"[BUNKER] Not everyone revealed yet "
+                f"in round {self.round}"
+            )
 
             await self.update_game_message()
 
@@ -825,8 +844,9 @@ class BunkerRevealView(discord.ui.View):
 
             await interaction.response.send_message(
                 "❌ Вы уже раскрыли карту в этом раунде.",
-                ephemeral=True,
+                ephemeral=True
             )
+
             return
 
         await interaction.response.send_message(
