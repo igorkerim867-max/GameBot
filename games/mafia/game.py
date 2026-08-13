@@ -22,6 +22,7 @@ from games.mafia.actions.maniac import handle_maniac_action
 from games.mafia.engine.finish_night import finish_night as engine_finish_night
 from games.mafia.settings import get_time_settings
 from database.mafia.service import MafiaStatsService
+from database.mafia.achievements import ACHIEVEMENTS
 
 # Fallback stub if the checker module is unavailable in the environment
 class AchievementChecker:
@@ -374,30 +375,22 @@ class MafiaGame:
 
             for achievement_id in unlocked:
 
-                # Try to fetch achievement definition from global ACHIEVEMENTS
-                achievement = None
-                _achievements_map = globals().get("ACHIEVEMENTS")
-                if _achievements_map and achievement_id in _achievements_map:
-                    achievement = _achievements_map[achievement_id]
-                else:
-                    # Fallback placeholder if ACHIEVEMENTS is not available
-                    achievement = type("Achievement", (), {
-                        "name": str(achievement_id),
-                        "description": "",
-                        "points": 0,
-                    })()
+                achievement = ACHIEVEMENTS[achievement_id]
 
-                await user.send(
-                    embed=discord.Embed(
-                        title="🏆 Новое достижение!",
-                        description=(
-                            f"**{achievement.name}**\n\n"
-                            f"{achievement.description}\n\n"
-                            f"⭐ Очков: **{achievement.points}**"
-                        ),
-                        color=discord.Color.gold()
+                try:
+                    await user.send(
+                        embed=discord.Embed(
+                            title="🏆 Новое достижение!",
+                            description=(
+                                f"**{achievement.name}**\n\n"
+                                f"{achievement.description}\n\n"
+                                f"⭐ Очков: **{achievement.points}**"
+                            ),
+                            color=discord.Color.gold()
+                        )
                     )
-                )
+                except discord.Forbidden:
+                    pass
 
         # Сообщаем всем игрокам роли
         roles = "\n".join(

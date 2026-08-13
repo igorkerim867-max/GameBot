@@ -44,15 +44,31 @@ class GamesMenu(discord.ui.View):
         print("5. Сообщение изменено")
 
     @discord.ui.button(
-        label="☢️ Бункер",
+        label="🏚️ Бункер",
         style=discord.ButtonStyle.primary,
         row=0
-    )
-    async def bunker(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(
-            "☢️ Бункер скоро появится!",
-            ephemeral=True
         )
+    async def bunker(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button
+    ):
+
+        from ui.bunker_menu import BunkerMenu
+
+        embed = GameEmbed(
+            title="🏚️ Бункер",
+            description=(
+            "Добро пожаловать в Бункер!\n\n"
+            "Соберите команду из **6 игроков** "
+            "и начните игру."
+            )
+        )
+
+        await interaction.response.edit_message(
+        embed=embed,
+        view=BunkerMenu()
+    )
 
     @discord.ui.button(
         label="🏦 Монополия",

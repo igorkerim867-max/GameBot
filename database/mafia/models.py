@@ -23,6 +23,24 @@ async def create_tables():
     )
     """)
     await db.execute("""
+    CREATE TABLE IF NOT EXISTS mafia_role_stats (
+
+        user_id INTEGER PRIMARY KEY,
+
+        mafia_kills INTEGER DEFAULT 0,
+
+        doctor_saves INTEGER DEFAULT 0,
+
+        sheriff_checks INTEGER DEFAULT 0,
+
+        hooker_blocks INTEGER DEFAULT 0,
+
+        civilian_wins INTEGER DEFAULT 0,
+
+       mafia_wins INTEGER DEFAULT 0
+    )
+    """)
+    await db.execute("""
     CREATE TABLE IF NOT EXISTS mafia_achievements (
 
         user_id INTEGER NOT NULL,

@@ -16,50 +16,6 @@ RARE = "rare"
 EPIC = "epic"
 LEGENDARY = "legendary"
 SECRET = "secret"
-ACHIEVEMENTS = {
-
-    "FIRST_GAME": Achievement(
-        id="FIRST_GAME",
-        name="🎮 Первая игра",
-        description="Сыграйте свою первую игру.",
-        points=5,
-        rarity=COMMON
-    ),
-
-    "FIRST_WIN": Achievement(
-        id="FIRST_WIN",
-        name="🏆 Первая победа",
-        description="Одержите первую победу.",
-        points=5,
-        rarity=COMMON
-    ),
-
-    "GAMES_10": Achievement(
-        id="GAMES_10",
-        name="🎲 Новичок",
-        description="Сыграйте 10 игр.",
-        points=10,
-        rarity=COMMON,
-        max_progress=10
-    ),
-    "GAMES_50": Achievement(
-        id="GAMES_50",
-        name="🏅 Опытный игрок",
-        description="Сыграйте 50 игр.",
-        points=20,
-        rarity=RARE,
-        max_progress=50
-    ),
-
-    "GAMES_100": Achievement(
-        id="GAMES_100",
-        name="👑 Ветеран",
-        description="Сыграйте 100 игр.",
-        points=40,
-        rarity=EPIC,
-        max_progress=100
-    ),
-}
 GENERAL = {
 
     "FIRST_GAME": Achievement(

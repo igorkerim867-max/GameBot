@@ -10,11 +10,20 @@ class Room:
 
     started: bool = False
 
-    min_players: int = 4
-    max_players: int = 15
+    min_players: int = field(init=False)
+    max_players: int = field(init=False)
 
     channel_id: int | None = None
     message_id: int | None = None
+    def __post_init__(self):
+
+        if self.game == "bunker":
+            self.min_players = 6
+            self.max_players = 6
+
+        else:
+            self.min_players = 4
+            self.max_players = 15
 
     def add_player(self, player_id: int) -> bool:
         if self.started:

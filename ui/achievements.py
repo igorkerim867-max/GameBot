@@ -217,6 +217,25 @@ class AchievementView(discord.ui.View):
             AchievementCategorySelect()
         )
 @discord.ui.button(
+    label="⬅️ Назад",
+    style=discord.ButtonStyle.secondary,
+    row=1
+)
+async def back(
+    self,
+    interaction: discord.Interaction,
+    button: discord.ui.Button
+):
+
+    embed = await get_achievements_embed(
+        interaction.user
+    )
+
+    await interaction.response.edit_message(
+        embed=embed,
+        view=AchievementView()
+    )
+@discord.ui.button(
     label="🎮 Общие",
     style=discord.ButtonStyle.primary,
     row=0
@@ -317,4 +336,28 @@ class AchievementCategorySelect(discord.ui.Select):
         super().__init__(
             placeholder="Выберите категорию достижений",
             options=options
+        )
+    async def callback(self, interaction: discord.Interaction):
+
+        categories = {
+            "general": ("🎮 Общие достижения", GENERAL),
+            "mafia": ("🔪 Достижения Мафии", MAFIA),
+            "doctor": ("💉 Достижения Доктора", DOCTOR),
+            "sheriff": ("👮 Достижения Шерифа", SHERIFF),
+            "hooker": ("💋 Достижения Проститутки", HOOKER),
+            "civilian": ("👤 Достижения Мирного", CIVILIAN),
+            "legendary": ("👑 Легендарные достижения", LEGENDARY),
+        }
+
+        title, category = categories[self.values[0]]
+
+        embed = await get_category_embed(
+            interaction.user,
+            title,
+            category
+        )
+
+        await interaction.response.edit_message(
+            embed=embed,
+            view=AchievementView()
         )

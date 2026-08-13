@@ -36,6 +36,18 @@ class MafiaStatsService:
                 username
             )
         )
+        await db.execute(
+            """
+            INSERT INTO mafia_role_stats (
+                user_id
+            )
+            VALUES (?)
+            """,
+            (
+                user_id,
+            )
+        )
+    
 
         await db.commit()
         await db.close()
@@ -177,6 +189,21 @@ class MafiaStatsService:
                 user_id,
                 achievement_id
             )
+        )
+
+        await db.commit()
+        await db.close()
+    async def add_doctor_save(self, user_id: int):
+
+        db = await get_connection()
+
+        await db.execute(
+            """
+            UPDATE mafia_role_stats
+            SET doctor_saves = doctor_saves + 1
+            WHERE user_id = ?
+            """,
+            (user_id,)
         )
 
         await db.commit()
