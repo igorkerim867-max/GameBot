@@ -18,8 +18,8 @@ class Room:
     def __post_init__(self):
 
         if self.game == "bunker":
-            self.min_players = 6
-            self.max_players = 6
+            self.min_players = 4
+            self.max_players = 10
 
         else:
             self.min_players = 4
