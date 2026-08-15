@@ -3,14 +3,15 @@ from __future__ import annotations
 import discord
 
 from games.room import Room
+from games.room import Room
 from games.room_manager import room_manager
-
+from games.bunker.game import BunkerGame
 
 def build_bunker_lobby_embed(room: Room) -> discord.Embed:
 
     embed = discord.Embed(
         title="🏚️ Бункер",
-        description="Соберите команду из 6 игроков.",
+        description="Соберите команду от 4 до 16 игроков.",
         color=discord.Color.dark_gold()
     )
 
@@ -28,14 +29,14 @@ def build_bunker_lobby_embed(room: Room) -> discord.Embed:
         players.append("Нет игроков")
 
     embed.add_field(
-        name=f"👥 Игроки ({room.player_count}/6)",
+        name=f"👥 Игроки ({room.player_count}/16)",
         value="\n".join(players),
         inline=False
     )
 
     embed.add_field(
         name="▶ Условия",
-        value="Для начала игры необходимо ровно **6 игроков**.",
+        value="Для начала игры необходимо минимум **4 игрока**.",
         inline=False
     )
 
@@ -92,10 +93,9 @@ class BunkerLobbyView(discord.ui.View):
                 ephemeral=True
             )
             return
-
-        if room.is_full():
+        if room.player_count >= 16:
             await interaction.response.send_message(
-                "❌ В Бункере может быть только 6 игроков.",
+                "❌ В Бункере может быть максимум 16 игроков.",
                 ephemeral=True
             )
             return
@@ -214,9 +214,16 @@ class BunkerLobbyView(discord.ui.View):
             )
             return
 
-        if not room.can_start():
+        if room.player_count < 4:
             await interaction.response.send_message(
-                "❌ Для начала Бункера необходимо ровно 6 игроков.",
+                 "❌ Для начала Бункера необходимо минимум 4 игрока.",
+                ephemeral=True
+            )
+            return
+
+        if room.player_count > 16:
+            await interaction.response.send_message(
+                "❌ В Бункере может быть максимум 16 игроков.",
                 ephemeral=True
             )
             return
@@ -240,8 +247,6 @@ class BunkerLobbyView(discord.ui.View):
         )
 
         try:
-
-            from games.bunker.game import BunkerGame
 
             game = BunkerGame(
                 interaction.client,

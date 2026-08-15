@@ -1,31 +1,75 @@
 class BunkerPlayer:
 
-    def __init__(self, user_id):
+    def __init__(self, user_id: int):
+
         self.user_id = user_id
 
-        # Карты персонажа
-        self.superpower = None
-        self.phobia = None
-        self.character = None
+        # ==========================================
+        # ХАРАКТЕРИСТИКИ ПЕРСОНАЖА
+        # ==========================================
+
+        self.profession = None
+        self.health = None
+        self.biology = None
         self.hobby = None
         self.baggage = None
-        self.fact = None
+        self.phobia = None
 
-        # Особое условие
-        self.special_condition = None
+        # ==========================================
+        # СОСТОЯНИЕ ИГРОКА
+        # ==========================================
 
-        # Состояние игрока
-        self.exiled = False
-        self.revealed = []
+        self.alive = True
         self.voted = False
 
-    def reveal(self, card_type):
+        # Какие карты уже были раскрыты
+        self.revealed = []
 
-        if card_type not in self.revealed:
-            self.revealed.append(card_type)
+        # Попал ли игрок в Бункер
+        self.in_bunker = False
+
+    # ==========================================
+    # ИЗГНАНИЕ
+    # ==========================================
+
+    def kill(self):
+
+        self.alive = False
+        self.voted = False
+
+    # ==========================================
+    # ПОПАДАНИЕ В БУНКЕР
+    # ==========================================
+
+    def enter_bunker(self):
+
+        self.in_bunker = True
+
+    # ==========================================
+    # ПРОВЕРКИ
+    # ==========================================
+
+    def is_alive(self):
+
+        return self.alive
 
     def is_exiled(self):
-        return self.exiled
 
-    def exile(self):
-        self.exiled = True
+        return not self.alive
+
+    def has_revealed(self, characteristic: str):
+
+        return characteristic in self.revealed
+
+    # ==========================================
+    # РАСКРЫТИЕ КАРТЫ
+    # ==========================================
+
+    def reveal(self, characteristic: str):
+
+        if characteristic in self.revealed:
+            return False
+
+        self.revealed.append(characteristic)
+
+        return True

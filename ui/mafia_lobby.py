@@ -259,16 +259,9 @@ class MafiaLobbyView(discord.ui.View):
             print("A")
             print("B")
 
-            if room.game == "bunker":
 
-                 game = BunkerGame(
-                    interaction.client,
-                    room
-                )
 
-            else:
-
-                game = MafiaGame(
+            game = MafiaGame(
                     interaction.client,
                     room
                 )

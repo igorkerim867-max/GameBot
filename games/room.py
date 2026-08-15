@@ -19,7 +19,7 @@ class Room:
 
         if self.game == "bunker":
             self.min_players = 4
-            self.max_players = 10
+            self.max_players = 16
 
         else:
             self.min_players = 4
