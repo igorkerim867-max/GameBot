@@ -315,6 +315,16 @@ class BunkerGame:
     # ИГРОВОЕ СООБЩЕНИЕ
     # ==========================================================
 
+    def get_current_view(self):
+
+        if self.phase == "reveal":
+                return BunkerRevealView(self)
+
+        if self.phase == "voting":
+                return BunkerVoteView(self)
+
+        return discord.ui.View()
+
     async def create_game_message(self):
 
         if self.game_channel is None:
