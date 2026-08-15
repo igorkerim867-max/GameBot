@@ -136,6 +136,7 @@ class BunkerGame:
 
         self.game_channel = None
         self.game_message = None
+        self.action_message = None
 
         # Голосование
         self.votes: dict[int, int] = {}
@@ -437,6 +438,7 @@ class BunkerGame:
 
         await self.investigate_bunker()
         await self.update_game_message()
+        await self.send_action_message()
 
     # ==========================================================
     # ИГРОВОЕ СООБЩЕНИЕ
@@ -536,6 +538,55 @@ class BunkerGame:
         await self.game_message.edit(
             embed=self.build_game_embed(),
             view=self.get_current_view(),
+        )
+    async def send_action_message(self):
+
+        # Убираем кнопку с предыдущего сообщения
+        if self.action_message is not None:
+
+            try:
+                await self.action_message.edit(
+                view=discord.ui.View()
+                )
+            except Exception:
+                pass
+
+        # Кнопка раскрытия карты
+        if self.phase == "reveal":
+
+            embed = discord.Embed(
+                title=f"🔓 Раунд {self.round}/{self.MAX_ROUNDS}",
+                description=(
+                "Выберите карту, которую хотите раскрыть.\n\n"
+                "⚠️ Уже раскрытые карты больше "
+                "не доступны для выбора."
+                ),
+                color=discord.Color.blue()
+            )
+
+            self.action_message = await self.game_channel.send(
+                embed=embed,
+                view=BunkerRevealView(self)
+            )
+
+        # Кнопка голосования
+        elif self.phase == "voting":
+
+            embed = discord.Embed(
+                title=(
+                f"🗳️ Голосование "
+                f"{self.vote_number}/{self.votes_required}"
+            ),
+            description=(
+                "Выберите игрока, которого хотите "
+                "изгнать из Бункера."
+            ),
+            color=discord.Color.red()
+        )
+
+        self.action_message = await self.game_channel.send(
+            embed=embed,
+            view=BunkerVoteView(self)
         )
 
     def get_current_view(self):
@@ -1204,12 +1255,19 @@ class BunkerVoteSelect(discord.ui.Select):
         # но кандидатами являются только живые.
         for player in game.alive_players:
 
+            user = game.bot.get_user(player.user_id)
+
+            if user is not None:
+                 player_name = user.display_name
+            else:
+                player_name = f"Игрок {player.user_id}"
+
             options.append(
                 discord.SelectOption(
-                    label=f"Игрок {player.user_id}",
+                    label=player_name[:100],
                     value=str(player.user_id),
                 )
-            )
+            )  
 
         # Discord разрешает максимум 25 вариантов
         super().__init__(
