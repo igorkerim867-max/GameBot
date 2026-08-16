@@ -187,13 +187,25 @@ class BunkerGame:
         return None
     def get_player_name(self, player):
 
+        # Сначала пытаемся получить участника именно из сервера
+        if self.game_channel is not None:
+
+            guild = getattr(self.game_channel, "guild", None)
+
+            if guild is not None:
+
+               member = guild.get_member(player.user_id)
+
+            if member is not None:
+                     return member.display_name
+
+        # Если участника нет в кеше сервера
         user = self.bot.get_user(player.user_id)
 
         if user is not None:
             return user.display_name
 
         return "Игрок"
-
     # ==========================================================
     # ЗАПУСК
     # ==========================================================
@@ -457,6 +469,10 @@ class BunkerGame:
         if self.game_channel is None:
             return
 
+        self.game_message = await self.game_channel.send(
+        embed=self.build_game_embed()
+        )
+
     async def create_game_message(self):
 
         if self.game_channel is None:
@@ -553,17 +569,20 @@ class BunkerGame:
         )
     async def send_action_message(self):
 
-        # Убираем кнопку с предыдущего сообщения
+    # Отключаем старую кнопку
         if self.action_message is not None:
 
             try:
                 await self.action_message.edit(
                 view=discord.ui.View()
-                )
+            )
             except Exception:
                 pass
 
-        # Кнопка раскрытия карты
+    # ==================================================
+    # РАСКРЫТИЕ КАРТЫ
+    # ==================================================
+
         if self.phase == "reveal":
 
             embed = discord.Embed(
@@ -572,46 +591,46 @@ class BunkerGame:
                 "Выберите карту, которую хотите раскрыть.\n\n"
                 "⚠️ Уже раскрытые карты больше "
                 "не доступны для выбора."
-                ),
-                color=discord.Color.blue()
+               ),
+               color=discord.Color.blue()
             )
 
-            self.action_message = await self.game_channel.send(
-                embed=embed,
-                view=BunkerRevealView(self)
+            self.action_message = (
+                await self.game_channel.send(
+                    embed=embed,
+                    view=BunkerRevealView(self)
+               )
             )
 
-        # Кнопка голосования
-        elif self.phase == "voting":
+            return
+
+    # ==================================================
+    # ГОЛОСОВАНИЕ
+    # ==================================================
+
+        if self.phase == "voting":
 
             embed = discord.Embed(
                 title=(
                 f"🗳️ Голосование "
-                f"{self.vote_number}/{self.votes_required}"
-            ),
-            description=(
+                f"{self.vote_number}/"
+                f"{self.votes_required}"
+                ),
+                description=(
                 "Выберите игрока, которого хотите "
                 "изгнать из Бункера."
-            ),
-            color=discord.Color.red()
-        )
+                ),
+                color=discord.Color.red()
+            )
 
-        self.action_message = await self.game_channel.send(
-            embed=embed,
-            view=BunkerVoteView(self)
-        )
+            self.action_message = (
+                await self.game_channel.send(
+                embed=embed,
+                view=BunkerVoteView(self)
+                )
+            )
 
-    def get_current_view(self):
-
-        if self.phase == "reveal":
-
-            return BunkerRevealView(self)
-
-        if self.phase == "voting":
-
-            return BunkerVoteView(self)
-
-        return discord.ui.View()
+            return
 
     # ==========================================================
     # ДОСТУПНЫЕ КАРТЫ
@@ -691,10 +710,12 @@ class BunkerGame:
             value,
         )
 
+        player_name = self.get_player_name(player)
+
         await self.game_channel.send(
             embed=discord.Embed(
                 title=(
-                    f"🔓 <@{user_id}> раскрывает "
+                    f"🔓 {player_name} раскрывает "
                     f"{self.CARD_NAMES[characteristic]}"
                 ),
                 description=value_text,
@@ -1276,8 +1297,8 @@ class BunkerVoteSelect(discord.ui.Select):
 
             options.append(
                 discord.SelectOption(
-            label=player_name[:100],
-            value=str(player.user_id)
+                    label=player_name[:100],
+                    value=str(player.user_id)
                 )
            )
 
