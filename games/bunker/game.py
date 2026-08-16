@@ -185,6 +185,14 @@ class BunkerGame:
                 return player
 
         return None
+    def get_player_name(self, player):
+
+        user = self.bot.get_user(player.user_id)
+
+        if user is not None:
+            return user.display_name
+
+        return "Игрок"
 
     # ==========================================================
     # ЗАПУСК
@@ -449,9 +457,13 @@ class BunkerGame:
         if self.game_channel is None:
             return
 
+    async def create_game_message(self):
+
+        if self.game_channel is None:
+             return
+
         self.game_message = await self.game_channel.send(
-            embed=self.build_game_embed(),
-            view=self.get_current_view(),
+        embed=self.build_game_embed()
         )
 
     def build_game_embed(self):
@@ -738,26 +750,31 @@ class BunkerGame:
             self.player_count
         ][self.round - 1]
 
+        print(
+        f"[BUNKER] Round {self.round}: "
+        f"voting required = {votes_for_round}"
+        )
+
+        # В этом раунде голосования НЕТ
         if votes_for_round == 0:
+
+            self.phase = "round_end"
 
             await self.game_channel.send(
                 embed=discord.Embed(
-                    title=(
-                        f"🏁 Раунд {self.round} завершён"
-                    ),
+                    title=f"🏁 Раунд {self.round} завершён",
                     description=(
-                        "Все активные игроки раскрыли "
-                        "свои карты.\n\n"
-                        "🗳️ Голосования в этом "
-                        "раунде нет."
+                    "Все игроки раскрыли свои карты.\n\n"
+                    "🗳️ **Голосования в этом раунде нет.**"
                     ),
-                    color=discord.Color.orange(),
+                    color=discord.Color.orange()
                 )
             )
 
             await self.next_round()
             return
 
+        # В этом раунде голосование есть
         self.votes_required = votes_for_round
         self.vote_number = 1
 
@@ -1255,19 +1272,14 @@ class BunkerVoteSelect(discord.ui.Select):
         # но кандидатами являются только живые.
         for player in game.alive_players:
 
-            user = game.bot.get_user(player.user_id)
-
-            if user is not None:
-                 player_name = user.display_name
-            else:
-                player_name = f"Игрок {player.user_id}"
+            player_name = game.get_player_name(player)
 
             options.append(
                 discord.SelectOption(
-                    label=player_name[:100],
-                    value=str(player.user_id),
+            label=player_name[:100],
+            value=str(player.user_id)
                 )
-            )  
+           )
 
         # Discord разрешает максимум 25 вариантов
         super().__init__(
